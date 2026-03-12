@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Monitor - Usage Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Backgrounds */
+            --bg-main: #0B0B0C;
+            --bg-surface: #111113;
+            --bg-card: #141416;
+
+            /* Borders */
+            --border: #242428;
+            --border-soft: #2A2A2F;
+
+            /* Text */
+            --text-primary: #FFFFFF;
+            --text-secondary: #A1A1AA;
+            --text-muted: #9CA3AF;
+
+            /* Accent Colors */
+            --primary: #7C5CFF;
+            --primary-light: #8B5CF6;
+            --accent-blue: #3B82F6;
+            --accent-gradient: linear-gradient(135deg, #7C5CFF, #3B82F6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            height: 70px;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .header-title {
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background-color: rgba(46, 160, 67, 0.15);
+            color: var(--primary-light);
+            border: 1px solid rgba(46, 160, 67, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--primary-light);
+            box-shadow: 0 0 8px var(--primary-light);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* Dashboard Scroll Area */
+        .dashboard-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px 40px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        /* Grid System */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .glass-card {
+            background: linear-gradient(135deg, rgba(124, 92, 255, 0.05), rgba(59, 130, 246, 0.05));
+            border-color: var(--border-soft);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 8px 24px rgba(124, 92, 255, 0.15);
+        }
+
+        .glass-card.active {
+            background: var(--accent-gradient);
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(124, 92, 255, 0.3);
+        }
+
+        .glass-card.active .stat-label,
+        .glass-card.active .stat-value {
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            font-family: monospace;
+        }
+
+        .card-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 300px;
+            width: 100%;
+        }
+
+        .col-span-8 {
+            grid-column: span 8;
+        }
+
+        .col-span-4 {
+            grid-column: span 4;
+        }
+
+        @media (max-width: 1200px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .col-span-8,
+            .col-span-4 {
+                grid-column: span 12;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Live Speed Bottom Bar */
+        .live-status-bar {
+            height: 60px;
+            background-color: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-icon {
+            font-size: 20px;
+        }
+
+        .status-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            Network Usage Dashboard
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                Recording Data
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="dashboard-content">
+
+        <!-- Top 5 Metric Cards -->
+        <div class="grid-container">
+            <div class="card glass-card" onclick="setChartPeriod('today', this)">
+                <div class="stat-label">Today Usage</div>
+                <div class="stat-value" id="valToday">...</div>
+            </div>
+            <div class="card glass-card" onclick="setChartPeriod('week', this)">
+                <div class="stat-label">Weekly Usage</div>
+                <div class="stat-value" id="valWeek">...</div>
+            </div>
+            <div class="card glass-card active" onclick="setChartPeriod('month', this)">
+                <div class="stat-label">Monthly Usage</div>
+                <div class="stat-value" id="valMonth">...</div>
+            </div>
+            <div class="card glass-card" onclick="setChartPeriod('year', this)">
+                <div class="stat-label">Total Usage</div>
+                <div class="stat-value" id="valTotal">...</div>
+            </div>
+            <div class="card glass-card" onclick="setChartPeriod('month', this)">
+                <div class="stat-label">Daily Average (30d)</div>
+                <div class="stat-value" id="valAverage">...</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-grid">
+            <!-- Usage Graph -->
+            <div class="card col-span-8" style="min-height: 400px;">
+                <div class="card-header" id="usageChartTitle">Usage Graph (Daily Breakdown - Last 30 Days)</div>
+                <div class="chart-wrapper">
+                    <canvas id="usageChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top 5 Applications -->
+            <div class="card col-span-4" style="min-height: 400px;">
+                <div class="card-header" id="appsChartTitle">Top 5 Applications (Monthly)</div>
+                <div class="chart-wrapper">
+                    <canvas id="appsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secondary Charts -->
+        <div class="chart-grid" style="margin-top: 24px;">
+            <!-- Active Connections Trend -->
+            <div class="card col-span-5" style="min-height: 350px;">
+                <div class="card-header" id="connChartTitle">Active Connections Trend</div>
+                <div class="chart-wrapper">
+                    <canvas id="connChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top 5 Remote Hosts -->
+            <div class="card col-span-7" style="min-height: 350px;">
+                <div class="card-header" id="ipsChartTitle">Top 5 Remote Hosts</div>
+                <div class="chart-wrapper">
+                    <canvas id="ipsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Live Speed Bottom Bar -->
+    <div class="live-status-bar">
+        <div class="status-item">
+            <span class="status-icon">⬇️</span>
+            <div>
+                <div class="status-label">Download</div>
+                <div class="status-value" id="liveDownload">0.00 Mbps</div>
+            </div>
+        </div>
+        <div class="status-item">
+            <span class="status-icon">⬆️</span>
+            <div>
+                <div class="status-label">Upload</div>
+                <div class="status-value" id="liveUpload">0.00 Mbps</div>
+            </div>
+        </div>
+        <div class="status-item">
+            <span class="status-icon">📶</span>
+            <div>
+                <div class="status-label">Ping</div>
+                <div class="status-value" id="livePing">0 ms</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables & Config
+        Chart.defaults.color = '#A1A1AA';
+        Chart.defaults.font.family = 'Inter';
+        Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+
+        const COLORS = {
+            primary: '#7C5CFF',     // Purple
+            secondary: '#3B82F6',   // Blue
+            grid: 'rgba(255,255,255,0.05)',
+            text: '#A1A1AA'
+        };
+
+        let charts = {};
+
+        // Utility
+        function formatBytes(bytes) {
+            if (!bytes || isNaN(bytes) || bytes <= 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.max(0, Math.floor(Math.log(bytes) / Math.log(k)));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + (sizes[i] || 'B');
+        }
+
+        // Initialize Usage Graph (Area Line)
+        function initUsageChart() {
+            const ctx = document.getElementById('usageChart').getContext('2d');
+
+            let grad1 = ctx.createLinearGradient(0, 0, 0, 400);
+            grad1.addColorStop(0, 'rgba(124, 92, 255, 0.4)');
+            grad1.addColorStop(1, 'rgba(124, 92, 255, 0.0)');
+
+            let grad2 = ctx.createLinearGradient(0, 0, 0, 400);
+            grad2.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+            grad2.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+            charts.usage = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: {
+                            border: { display: false },
+                            ticks: { callback: v => formatBytes(v) }
+                        }
+                    }
+                }
+            });
+            charts.usage.grad1 = grad1;
+            charts.usage.grad2 = grad2;
+        }
+
+        // Initialize Top 5 Apps Chart (Doughnut)
+        function initAppsChart() {
+            const ctx = document.getElementById('appsChart').getContext('2d');
+            charts.apps = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [COLORS.primary, COLORS.secondary, '#8B5CF6', '#2563EB', '#A78BFA'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '70%',
+                    plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } } }
+                }
+            });
+        }
+
+        // Initialize Active Connections Trend (Line)
+        function initConnChart() {
+            const ctx = document.getElementById('connChart').getContext('2d');
+            charts.conn = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Max Connections', data: [], borderColor: COLORS.secondary, backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { border: { display: false }, grid: { color: COLORS.grid }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Initialize Top 5 Remote Hosts (Bar)
+        function initIpsChart() {
+            const ctx = document.getElementById('ipsChart').getContext('2d');
+            charts.ips = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Traffic', data: [], backgroundColor: COLORS.primary, borderRadius: 4, barPercentage: 0.6 }] },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { border: { display: false }, grid: { color: COLORS.grid }, ticks: { callback: v => formatBytes(v) } },
+                        y: { border: { display: false }, grid: { display: false }, ticks: { color: COLORS.text } }
+                    }
+                }
+            });
+        }
+
+        let activePeriod = 'month';
+
+        // Handle filter clicks
+        window.setChartPeriod = function (period, element) {
+            activePeriod = period;
+            document.querySelectorAll('.glass-card').forEach(c => c.classList.remove('active'));
+            if (element) element.classList.add('active');
+
+            // Instantly fetch upon click
+            fetchMetrics();
+            fetchCharts();
+        }
+
+        // Fetch Metrics (Updates numbers fast)
+        async function fetchMetrics() {
+            try {
+                const resToday = await fetch('/api/usage-by-period?period=today');
+                const dataToday = await resToday.json();
+                document.getElementById('valToday').textContent = formatBytes(dataToday.total_traffic || 0);
+
+                const resWeek = await fetch('/api/usage-by-period?period=week');
+                const dataWeek = await resWeek.json();
+                document.getElementById('valWeek').textContent = formatBytes(dataWeek.total_traffic || 0);
+
+                const resMonth = await fetch('/api/usage-by-period?period=month');
+                const dataMonth = await resMonth.json();
+                const totalMonth = dataMonth.total_traffic || 0;
+                document.getElementById('valMonth').textContent = formatBytes(totalMonth);
+                document.getElementById('valAverage').textContent = formatBytes(totalMonth / 30 || 0);
+
+                const resTotal = await fetch('/api/total-usage');
+                const dataTotal = await resTotal.json();
+                document.getElementById('valTotal').textContent = formatBytes((dataTotal.total_download || 0) + (dataTotal.total_upload || 0));
+            } catch (e) {
+                console.error('Error fetching metrics:', e);
+            }
+        }
+
+        // Fetch Charts (Updates heavy graphs slower)
+        async function fetchCharts() {
+            try {
+                // 1. Usage Graph & Connections Trend
+                const resChart = await fetch(`/api/usage-by-period?period=${activePeriod}`);
+                const dataChart = await resChart.json();
+
+                if (dataChart.chart_data) {
+                    const labels = dataChart.chart_data.map(item => item.date || item.timestamp || item.hour || item.month || item.week || '');
+                    const downData = dataChart.chart_data.map(i => i.total_download || i.download_bytes || i.today_download || 0);
+                    const upData = dataChart.chart_data.map(i => i.total_upload || i.upload_bytes || i.today_upload || 0);
+                    const connData = dataChart.chart_data.map(i => i.max_connections || i.active_connections || 0);
+
+                    charts.usage.data.labels = labels;
+                    charts.usage.data.datasets = [
+                        { label: 'Download', data: downData, borderColor: COLORS.primary, backgroundColor: charts.usage.grad1, fill: true, tension: 0.4 },
+                        { label: 'Upload', data: upData, borderColor: COLORS.secondary, backgroundColor: charts.usage.grad2, fill: true, tension: 0.4 }
+                    ];
+
+                    let timeTitle = "Last 30 Days";
+                    if (activePeriod === 'today') timeTitle = "Today (Hourly)";
+                    if (activePeriod === 'week') timeTitle = "This Week (Daily)";
+                    if (activePeriod === 'year') timeTitle = "This Year (Monthly)";
+                    document.getElementById('usageChartTitle').textContent = `Usage Graph (${timeTitle})`;
+
+                    charts.usage.update();
+
+                    charts.conn.data.labels = labels;
+                    charts.conn.data.datasets[0].data = connData;
+                    charts.conn.update();
+                }
+
+                // 2. Top 5 Apps
+                let appsUrl = '/api/processes?minutes=43200&limit=5';
+                let timeTitle = "Monthly";
+                if (activePeriod === 'today') { appsUrl = '/api/processes?minutes=1440&limit=5'; timeTitle = "Today"; }
+                else if (activePeriod === 'week') { appsUrl = '/api/processes?minutes=10080&limit=5'; timeTitle = "Weekly"; }
+                else if (activePeriod === 'year') { appsUrl = '/api/all-time-processes?limit=5'; timeTitle = "All-Time"; }
+
+                document.getElementById('appsChartTitle').textContent = `Top 5 Applications (${timeTitle})`;
+                const resApps = await fetch(appsUrl);
+                const appsData = await resApps.json();
+                charts.apps.data.labels = appsData.map(a => a.process_name.replace('.exe', ''));
+                charts.apps.data.datasets[0].data = appsData.map(a => a.total_bytes);
+                charts.apps.update();
+
+                // 3. Top 5 Remote Hosts
+                let ipsUrl = appsUrl.replace('processes', 'top-ips').replace('all-time-processes', 'all-time-ips');
+                document.getElementById('ipsChartTitle').textContent = `Top 5 Remote Hosts (${timeTitle})`;
+                const resIps = await fetch(ipsUrl);
+                const ipsData = await resIps.json();
+                charts.ips.data.labels = ipsData.map(a => a.remote_ip || a.ip_address);
+                charts.ips.data.datasets[0].data = ipsData.map(a => a.total_bytes);
+                charts.ips.update();
+
+            } catch (e) {
+                console.error('Error fetching charts:', e);
+            }
+        }
+
+        // Fetch Live Speed Bar
+        async function fetchLiveBar() {
+            try {
+                const res = await fetch('/api/live?seconds=1');
+                const data = await res.json();
+                if (data.download_speeds && data.download_speeds.length > 0) {
+                    const down = data.download_speeds[data.download_speeds.length - 1]; // Latest
+                    const up = data.upload_speeds[data.upload_speeds.length - 1];
+                    const ping = data.ping_latencies ? data.ping_latencies[data.ping_latencies.length - 1] : 0;
+
+                    document.getElementById('liveDownload').textContent = (down * 8 / 1000000).toFixed(2) + ' Mbps';
+                    document.getElementById('liveUpload').textContent = (up * 8 / 1000000).toFixed(2) + ' Mbps';
+                    document.getElementById('livePing').textContent = Math.round(ping) + ' ms';
+                }
+            } catch (e) {
+                console.error('Error fetching live bar:', e);
+            }
+        }
+
+        window.onload = () => {
+            const socket = io();
+
+            initUsageChart();
+            initAppsChart();
+            initConnChart();
+            initIpsChart();
+
+            // Initial render
+            fetchMetrics();
+            fetchCharts();
+            fetchLiveBar();
+
+            // Poll metrics & live speed extremely fast (2s)
+            setInterval(() => {
+                fetchMetrics();
+                fetchLiveBar();
+            }, 2000);
+
+            // Poll heavy charts slower (10s)
+            setInterval(() => {
+                fetchCharts();
+            }, 10000);
+        };
+    </script>
+</body>
+
+</html>

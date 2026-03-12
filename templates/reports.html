@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Monitor - Reports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #0B0B0C;
+            --bg-surface: #111113;
+            --bg-card: #141416;
+            --border: #242428;
+            --border-soft: #2A2A2F;
+            --text-primary: #FFFFFF;
+            --text-secondary: #A1A1AA;
+            --text-muted: #9CA3AF;
+            --primary: #7C5CFF;
+            --primary-light: #8B5CF6;
+            --accent-blue: #3B82F6;
+            --accent-gradient: linear-gradient(135deg, #7C5CFF, #3B82F6);
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .glass-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+        }
+
+        .gradient-text {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-container-large {
+            position: relative;
+            height: 400px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-main);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-soft);
+        }
+
+        .tab-active {
+            background: rgba(124, 92, 255, 0.2);
+            color: var(--primary-light);
+            border-color: var(--primary);
+        }
+
+        .tab-inactive {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: transparent;
+        }
+
+        .tab-inactive:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-[#7C5CFF] to-[#3B82F6] rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold gradient-text">Network Reports</h1>
+                        <p class="text-xs text-slate-400">Detailed analytics & insights</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/"
+                        class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        <!-- Usage Summary Section -->
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Usage Summary
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4" id="usageSummaryGroup">
+                <!-- Total Data Used -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-blue-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Total Data Used
+                    </div>
+                    <div class="text-xl font-bold text-white" id="statTotalData">0 B</div>
+                </div>
+                <!-- Total Download -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-emerald-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Total Download</div>
+                    <div class="text-xl font-bold text-white" id="statDownload">0 B</div>
+                </div>
+                <!-- Total Upload -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-violet-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Total Upload</div>
+                    <div class="text-xl font-bold text-white" id="statUpload">0 B</div>
+                </div>
+                <!-- Daily Average -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-amber-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Daily Average</div>
+                    <div class="text-xl font-bold text-white" id="statAvg">0 B</div>
+                </div>
+                <!-- Peak Usage Day -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-rose-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Peak Usage Day</div>
+                    <div class="text-sm font-medium text-slate-400" id="statPeakDate">-</div>
+                    <div class="text-lg font-bold text-white" id="statPeakValue">0 B</div>
+                </div>
+                <!-- Lowest Usage Day -->
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-slate-500">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Lowest Usage Day
+                    </div>
+                    <div class="text-sm font-medium text-slate-400" id="statLowDate">-</div>
+                    <div class="text-lg font-bold text-white" id="statLowValue">0 B</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chart Section -->
+        <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h2 class="text-xl font-bold text-white" id="mainChartTitle">Traffic Analysis</h2>
+                    <p class="text-sm text-slate-400" id="mainChartSub">Visualizing network consumption trends</p>
+                </div>
+
+                <!-- In-visual Filter Controls -->
+                <div class="flex items-center bg-[#1A1A1E] p-1 rounded-xl border border-var(--border)">
+                    <button onclick="changePeriod('daily')" id="btn-daily"
+                        class="period-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all">Day</button>
+                    <button onclick="changePeriod('weekly')" id="btn-weekly"
+                        class="period-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">Week</button>
+                    <button onclick="changePeriod('monthly')" id="btn-monthly"
+                        class="period-btn px-4 py-2 rounded-lg text-sm font-medium transition-all">Month</button>
+                </div>
+            </div>
+
+            <div class="chart-container-large">
+                <canvas id="mainReportChart"></canvas>
+            </div>
+
+            <div id="drilldownHint" class="mt-4 text-center text-xs text-slate-500 italic">
+                <span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
+                Tip: Click on a day bar to see hourly breakdown
+            </div>
+        </div>
+
+        <!-- Drilldown Section (Hourly) -->
+        <div id="drilldownContainer" class="hidden glass-panel rounded-2xl p-6 border-blue-500/30">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <button onclick="closeDrilldown()"
+                            class="p-1 hover:bg-slate-700 rounded transition-colors mr-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                        </button>
+                        Hourly Breakdown: <span id="drilldownDate" class="text-blue-400"></span>
+                    </h3>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="drilldownChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Detailed Table -->
+        <div class="glass-panel rounded-xl p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Detailed Data Log</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-500 uppercase">
+                        <tr class="border-b border-slate-800">
+                            <th class="px-4 py-3">Time Period</th>
+                            <th class="px-4 py-3">Download</th>
+                            <th class="px-4 py-3">Upload</th>
+                            <th class="px-4 py-3">Peak Speed</th>
+                            <th class="px-4 py-3 text-right">Efficiency</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTable" class="divide-y divide-slate-800/50">
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-slate-600">Loading historical data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <style>
+        .period-btn {
+            color: var(--text-secondary);
+        }
+
+        .period-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .period-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
+        }
+    </style>
+
+    <script>
+        let mainChart = null;
+        let drillChart = null;
+        let activePeriod = 'daily';
+
+        // Utility: Format bytes nicely
+        function formatBytes(bytes) {
+            if (!bytes || bytes <= 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Initialize Charts
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        function initCharts() {
+            const mainCtx = document.getElementById('mainReportChart').getContext('2d');
+            mainChart = new Chart(mainCtx, {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (e, elements) => {
+                        if (activePeriod === 'daily' && elements.length > 0) {
+                            const index = elements[0].index;
+                            const dateLabel = mainChart.data.labels[index];
+                            showDrilldown(dateLabel);
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 6 } },
+                        tooltip: { mode: 'index', intersect: false, backgroundColor: '#1e293b', titleColor: '#94a3b8', bodyColor: '#fff', padding: 12 }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, border: { display: false } },
+                        y: { border: { display: false }, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { callback: v => formatBytes(v) } }
+                    }
+                }
+            });
+
+            const drillCtx = document.getElementById('drilldownChart').getContext('2d');
+            drillChart = new Chart(drillCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { border: { display: false }, ticks: { callback: v => formatBytes(v) } }
+                    }
+                }
+            });
+        }
+
+        // Period Switching
+        function changePeriod(period) {
+            activePeriod = period;
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + period).classList.add('active');
+
+            document.getElementById('mainChartTitle').textContent =
+                period === 'daily' ? 'Daily Usage (Last 30 Days)' :
+                    period === 'weekly' ? 'Weekly Data Usage' : 'Monthly Traffic Distribution';
+
+            document.getElementById('drilldownHint').style.display = (period === 'daily' ? 'block' : 'none');
+
+            loadMainChartData();
+        }
+
+        // Load Summary Cards
+        async function loadSummary() {
+            try {
+                const res = await fetch('/api/report-summary?days=30');
+                const data = await res.json();
+
+                document.getElementById('statTotalData').textContent = formatBytes(data.total_traffic);
+                document.getElementById('statDownload').textContent = formatBytes(data.total_download);
+                document.getElementById('statUpload').textContent = formatBytes(data.total_upload);
+                document.getElementById('statAvg').textContent = formatBytes(data.daily_average);
+
+                if (data.peak_day && data.peak_day.date !== '-') {
+                    document.getElementById('statPeakDate').textContent = new Date(data.peak_day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    document.getElementById('statPeakValue').textContent = formatBytes(data.peak_day.total);
+                }
+
+                if (data.lowest_day && data.lowest_day.date !== '-') {
+                    document.getElementById('statLowDate').textContent = new Date(data.lowest_day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    document.getElementById('statLowValue').textContent = formatBytes(data.lowest_day.total);
+                }
+            } catch (e) {
+                console.error("Failed to load summary", e);
+            }
+        }
+
+        // Load Main Chart
+        async function loadMainChartData() {
+            try {
+                let url = '';
+                if (activePeriod === 'daily') url = '/api/daily?days=30';
+                else if (activePeriod === 'weekly') url = '/api/weekly?weeks=12';
+                else if (activePeriod === 'monthly') url = '/api/monthly?months=12';
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const labels = data.map(d => d.date || d.week_start || d.month);
+                const downloads = data.map(d => d.total_download);
+                const uploads = data.map(d => d.total_upload);
+
+                mainChart.data.labels = labels;
+                mainChart.data.datasets = [
+                    {
+                        label: 'Download',
+                        data: downloads,
+                        backgroundColor: '#7C5CFF',
+                        hoverBackgroundColor: '#8B5CF6',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Upload',
+                        data: uploads,
+                        backgroundColor: '#3B82F6',
+                        hoverBackgroundColor: '#60A5FA',
+                        borderRadius: 6
+                    }
+                ];
+                mainChart.update();
+                updateTable(data);
+            } catch (e) {
+                console.error("Failed to load main chart", e);
+            }
+        }
+
+        // Drilldown Logic
+        async function showDrilldown(date) {
+            document.getElementById('drilldownContainer').classList.remove('hidden');
+            document.getElementById('drilldownDate').textContent = date;
+            document.getElementById('drilldownContainer').scrollIntoView({ behavior: 'smooth' });
+
+            try {
+                const res = await fetch(`/api/hourly-breakdown?date=${date}`);
+                const data = await res.json();
+
+                drillChart.data.labels = data.map(d => d.hour + ':00');
+                drillChart.data.datasets = [{
+                    label: 'Total Traffic',
+                    data: data.map(d => (d.total_download || 0) + (d.total_upload || 0)),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }];
+                drillChart.update();
+            } catch (e) { console.error(e); }
+        }
+
+        function closeDrilldown() {
+            document.getElementById('drilldownContainer').classList.add('hidden');
+        }
+
+        function updateTable(data) {
+            const tb = document.getElementById('dataTable');
+            tb.innerHTML = data.slice().reverse().map(d => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="px-4 py-4 text-white font-medium">${d.date || d.week_start || d.month}</td>
+                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_download)}</td>
+                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_upload)}</td>
+                    <td class="px-4 py-4 text-emerald-400 font-mono text-xs">${formatBytes(d.peak_download)}/s</td>
+                    <td class="px-4 py-4 text-right">
+                        <div class="w-24 bg-slate-800 rounded-full h-1.5 ml-auto">
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${Math.random() * 50 + 50}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.onload = () => {
+            initCharts();
+            loadSummary();
+            changePeriod('daily');
+        };
+    </script>
+</body>
+
+</html>
