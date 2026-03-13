@@ -202,6 +202,35 @@
             </div>
         </div>
 
+        <!-- Additional Usage Visualizations -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Cumulative usage trend -->
+            <div class="glass-panel rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Cumulative Usage</h3>
+                        <p class="text-xs text-slate-400">Running total of traffic for the selected period</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="cumulativeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Download vs Upload share -->
+            <div class="glass-panel rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Download vs Upload Share</h3>
+                        <p class="text-xs text-slate-400">Relative contribution over the selected period</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="shareChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Drilldown Section (Hourly) -->
         <div id="drilldownContainer" class="hidden glass-panel rounded-2xl p-6 border-blue-500/30">
             <div class="flex items-center justify-between mb-6">
@@ -267,6 +296,9 @@
     <script>
         let mainChart = null;
         let drillChart = null;
+        let cumulativeChart = null;
+        let shareChart = null;
+        let lastSeriesData = [];
         let activePeriod = 'daily';
 
         // Utility: Format bytes nicely
@@ -321,6 +353,51 @@
                     }
                 }
             });
+
+            const cumulativeCtx = document.getElementById('cumulativeChart').getContext('2d');
+            cumulativeChart = new Chart(cumulativeCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: {
+                            border: { display: false },
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { callback: v => formatBytes(v) }
+                        }
+                    }
+                }
+            });
+
+            const shareCtx = document.getElementById('shareChart').getContext('2d');
+            shareChart = new Chart(shareCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Download', 'Upload'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#7C5CFF', '#3B82F6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, boxWidth: 8, color: '#9CA3AF' }
+                        }
+                    }
+                }
+            });
         }
 
         // Period Switching
@@ -352,11 +429,17 @@
                 if (data.peak_day && data.peak_day.date !== '-') {
                     document.getElementById('statPeakDate').textContent = new Date(data.peak_day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     document.getElementById('statPeakValue').textContent = formatBytes(data.peak_day.total);
+                } else {
+                    document.getElementById('statPeakDate').textContent = '-';
+                    document.getElementById('statPeakValue').textContent = '0 B';
                 }
 
                 if (data.lowest_day && data.lowest_day.date !== '-') {
                     document.getElementById('statLowDate').textContent = new Date(data.lowest_day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     document.getElementById('statLowValue').textContent = formatBytes(data.lowest_day.total);
+                } else {
+                    document.getElementById('statLowDate').textContent = '-';
+                    document.getElementById('statLowValue').textContent = '0 B';
                 }
             } catch (e) {
                 console.error("Failed to load summary", e);
@@ -374,9 +457,11 @@
                 const res = await fetch(url);
                 const data = await res.json();
 
-                const labels = data.map(d => d.date || d.week_start || d.month);
-                const downloads = data.map(d => d.total_download);
-                const uploads = data.map(d => d.total_upload);
+                lastSeriesData = data || [];
+
+                const labels = lastSeriesData.map(d => d.date || d.week_start || d.month);
+                const downloads = lastSeriesData.map(d => d.total_download || 0);
+                const uploads = lastSeriesData.map(d => d.total_upload || 0);
 
                 mainChart.data.labels = labels;
                 mainChart.data.datasets = [
@@ -396,10 +481,41 @@
                     }
                 ];
                 mainChart.update();
-                updateTable(data);
+
+                // Update secondary visualizations with the same dataset
+                updateSecondaryCharts(labels, downloads, uploads);
+                updateTable(lastSeriesData);
             } catch (e) {
                 console.error("Failed to load main chart", e);
             }
+        }
+
+        function updateSecondaryCharts(labels, downloads, uploads) {
+            if (!cumulativeChart || !shareChart) return;
+
+            const totals = downloads.map((d, i) => (d || 0) + (uploads[i] || 0));
+            const cumulative = [];
+            let running = 0;
+            for (let i = 0; i < totals.length; i++) {
+                running += totals[i] || 0;
+                cumulative.push(running);
+            }
+
+            cumulativeChart.data.labels = labels;
+            cumulativeChart.data.datasets = [{
+                label: 'Cumulative Traffic',
+                data: cumulative,
+                borderColor: '#7C5CFF',
+                backgroundColor: 'rgba(124, 92, 255, 0.12)',
+                fill: true,
+                tension: 0.35
+            }];
+            cumulativeChart.update();
+
+            const sumDownload = downloads.reduce((acc, v) => acc + (v || 0), 0);
+            const sumUpload = uploads.reduce((acc, v) => acc + (v || 0), 0);
+            shareChart.data.datasets[0].data = [sumDownload, sumUpload];
+            shareChart.update();
         }
 
         // Drilldown Logic
@@ -431,19 +547,24 @@
 
         function updateTable(data) {
             const tb = document.getElementById('dataTable');
-            tb.innerHTML = data.slice().reverse().map(d => `
+            const reversed = data.slice().reverse();
+            const maxTotal = reversed.length ? Math.max(...reversed.map(d => (d.total_download || 0) + (d.total_upload || 0))) : 0;
+            tb.innerHTML = reversed.map(d => {
+                const total = (d.total_download || 0) + (d.total_upload || 0);
+                const pct = maxTotal > 0 ? Math.min(100, Math.round((total / maxTotal) * 100)) : 0;
+                return `
                 <tr class="hover:bg-slate-800/30 transition-colors">
                     <td class="px-4 py-4 text-white font-medium">${d.date || d.week_start || d.month}</td>
-                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_download)}</td>
-                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_upload)}</td>
-                    <td class="px-4 py-4 text-emerald-400 font-mono text-xs">${formatBytes(d.peak_download)}/s</td>
+                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_download || 0)}</td>
+                    <td class="px-4 py-4 text-slate-300">${formatBytes(d.total_upload || 0)}</td>
+                    <td class="px-4 py-4 text-emerald-400 font-mono text-xs">${formatBytes(d.peak_download || 0)}/s</td>
                     <td class="px-4 py-4 text-right">
                         <div class="w-24 bg-slate-800 rounded-full h-1.5 ml-auto">
-                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${Math.random() * 50 + 50}%"></div>
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         window.onload = () => {

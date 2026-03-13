@@ -630,8 +630,6 @@ class Database:
                 ORDER BY hour ASC
             ''', (date,))
             return [dict(row) for row in cursor.fetchall()]
-    
-            return result
 
     def get_summary_stats(self, days: int = 30) -> Dict:
         """Get summary statistics"""
@@ -694,19 +692,20 @@ class Database:
             if lowest_day['total'] == float('inf'):
                 lowest_day = {'date': '-', 'total': 0}
             
-            # 3. Calculate Daily Average based on active days or the full period
+            # 3. Calculate Daily Average over the requested window (e.g. 30 days)
             # User example: 14.84 GB / 30 ~ 500MB
-            active_days = total_stats.get('active_days', 1) or 1
-            daily_avg = (total_stats.get('total_download', 0) + total_stats.get('total_upload', 0)) / active_days
+            total_traffic = (total_stats.get('total_download', 0) or 0) + (total_stats.get('total_upload', 0) or 0)
+            window_days = max(int(days or 0), 1)
+            daily_avg = total_traffic / window_days
             
             return {
                 'total_download': total_stats.get('total_download', 0),
                 'total_upload': total_stats.get('total_upload', 0),
-                'total_traffic': total_stats.get('total_download', 0) + total_stats.get('total_upload', 0),
+                'total_traffic': total_traffic,
                 'daily_average': daily_avg,
                 'peak_day': peak_day,
                 'lowest_day': lowest_day,
-                'active_days': active_days
+                'active_days': total_stats.get('active_days', 0)
             }
     
     def get_all_time_stats(self) -> Dict:
