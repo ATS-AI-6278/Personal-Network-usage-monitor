@@ -17,6 +17,12 @@ A Premium Windows-only network monitoring application designed for detailed usag
 
 ## Screenshots
 
+### Main Dashboard
+![Main Dashboard]("Screenshot%202026-03-24%20050950.png")
+*Premium Glassmorphism Dashboard with Real-time Network Usage and KPI Metrics*
+
+### Reports Page
+![Reports Page]("Screenshot%202026-03-24%20051042.png")
 *Comprehensive Reports Page with Interactive Charts and Summary Analytics*
 
 ## Requirements
